@@ -7,10 +7,33 @@ type stats = {
   mutable nb_reads : int;
   mutable bytes_written : int;
   mutable nb_writes : int;
+  mutable nb_merge : int;
+  mutable nb_replace : int;
 }
 
+let src =
+  let open Metrics in
+  let tags = Tags.[] in
+  let data t =
+    Data.v
+      [
+        int "bytes_read" t.bytes_read;
+        int "bytes_written" t.bytes_written;
+        int "merge" t.nb_merge;
+        int "replace" t.nb_replace;
+      ]
+  in
+  Src.v "bench" ~tags ~data
+
 let fresh_stats () =
-  { bytes_read = 0; nb_reads = 0; bytes_written = 0; nb_writes = 0 }
+  {
+    bytes_read = 0;
+    nb_reads = 0;
+    bytes_written = 0;
+    nb_writes = 0;
+    nb_merge = 0;
+    nb_replace = 0;
+  }
 
 let stats = fresh_stats ()
 
@@ -18,9 +41,13 @@ let reset_stats () =
   stats.bytes_read <- 0;
   stats.nb_reads <- 0;
   stats.bytes_written <- 0;
-  stats.nb_writes <- 0
+  stats.nb_writes <- 0;
+  stats.nb_merge <- 0;
+  stats.nb_replace <- 0
 
 let get_stats () = stats
+
+let no_tags x = x
 
 module IO : Index.IO = struct
   let ( ++ ) = Int64.add
@@ -82,13 +109,15 @@ module IO : Index.IO = struct
       really_write t.fd off buf;
       t.cursor <- off ++ Int64.of_int (Bytes.length buf);
       stats.bytes_written <- stats.bytes_written + Bytes.length buf;
-      stats.nb_writes <- succ stats.nb_writes
+      stats.nb_writes <- succ stats.nb_writes;
+      Metrics.add src no_tags (fun m -> m stats)
 
     let unsafe_read t ~off ~len buf =
       let n = really_read t.fd off len buf in
       t.cursor <- off ++ Int64.of_int n;
       stats.bytes_read <- stats.bytes_read + n;
       stats.nb_reads <- succ stats.nb_reads;
+      Metrics.add src no_tags (fun m -> m stats);
       n
 
     module Offset = struct
@@ -359,6 +388,10 @@ module IO : Index.IO = struct
     | None -> err_rw_lock path
 
   let unlock fd = Unix.close fd
+
+  let incr_nb_merge () = stats.nb_merge <- succ stats.nb_merge
+
+  let incr_nb_replace () = stats.nb_replace <- succ stats.nb_replace
 end
 
 module Make (K : Index.Key) (V : Index.Value) = Index.Make (K) (V) (IO)

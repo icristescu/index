@@ -382,6 +382,7 @@ module Make (K : Key) (V : Value) (IO : IO) = struct
 
   let merge ~witness t =
     Log.debug (fun l -> l "unforced merge %S\n" t.root);
+    IO.incr_nb_merge ();
     let merge_path = merge_path t.root in
     let generation = Int64.succ t.generation in
     let log =
@@ -453,6 +454,7 @@ module Make (K : Key) (V : Value) (IO : IO) = struct
   let replace t key value =
     let t = assert_open t in
     Log.debug (fun l -> l "add %a %a" K.pp key V.pp value);
+    IO.incr_nb_replace ();
     if t.config.readonly then raise RO_not_allowed;
     let entry = { key; key_hash = K.hash key; value } in
     append_entry t.log entry;

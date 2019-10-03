@@ -17,7 +17,7 @@ let hash_size = 30
 
 let value_size = 13
 
-let nb_entries = 10_000_000
+let nb_entries = 100_000
 
 let log_size = 500_000
 
@@ -112,6 +112,7 @@ module Index = struct
   let read r () = Array.iter (fun (k, _) -> ignore (Index.find r k)) random
 
   let write_random () =
+    Log.debug (fun l -> l "write_radom");
     Index_unix.reset_stats ();
     let rw = Index.v ~fresh:true ~log_size (root // "fill_random") in
     print_results (write rw);
@@ -278,57 +279,89 @@ module Lmdb = struct
   let close env = closedir env
 end
 
-let main () =
+let init () =
   Common.report ();
   Index.init ();
   Lmdb.cleanup ();
-
   Log.app (fun l -> l "Keys: %d bytes each." key_size);
   Log.app (fun l -> l "Values: %d bytes each." value_size);
   Log.app (fun l -> l "Entries: %d." nb_entries);
   Log.app (fun l -> l "Log size: %d." log_size);
-  populate ();
+  populate ()
+
+let index_main () =
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in increasing order of keys");
   Index.write_seq ();
-  Lmdb.fail_on_error Lmdb.write_seq;
-
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in increasing order of hashes");
   Index.write_seq_hash ();
-
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in decreasing order of hashes");
   Index.write_rev_seq_hash ();
-
   populate ();
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in random order and sync after each write");
   Index.write_sync ();
-  Lmdb.fail_on_error Lmdb.write_sync;
-
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in random order");
   let rw = Index.write_random () in
-  let lmdb, env = R.get_ok (Lmdb.write_random ()) in
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Read in random order ");
   Index.read_random rw;
-  Lmdb.read_random lmdb;
-
   Log.app (fun l -> l "\n");
   Log.app (fun l ->
       l
         "Read in sequential order (increasing order of hashes for index, \
          increasing order of keys for lmdb)");
   Index.read_seq rw;
-  Lmdb.read_seq ();
-
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Overwrite");
   Index.overwrite rw;
+  Index.close rw
+
+let lmdb_main () =
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Fill in increasing order of keys");
+  Lmdb.fail_on_error Lmdb.write_seq;
+  populate ();
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Fill in random order and sync after each write");
+  Lmdb.fail_on_error Lmdb.write_sync;
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Fill in random order");
+  let lmdb, env = R.get_ok (Lmdb.write_random ()) in
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Read in random order ");
+  Lmdb.read_random lmdb;
+  Log.app (fun l -> l "\n");
+  Log.app (fun l ->
+      l
+        "Read in sequential order (increasing order of hashes for index, \
+         increasing order of keys for lmdb)");
+  Lmdb.read_seq ();
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Overwrite");
   Lmdb.overwrite lmdb;
-  Index.close rw;
   Lmdb.close env
 
-let () = main ()
+let minimal_benchs () =
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Fill in random order");
+  let rw = Index.write_random () in
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Read in random order ");
+  Index.read_random rw;
+
+  Log.app (fun l -> l "\n");
+  Log.app (fun l ->
+      l "Read in sequential order (increasing order of hashes for index)");
+  Index.read_seq rw;
+  Index.close rw
+
+let () =
+  Metrics.enable_all ();
+  Metrics_gnuplot.set_reporter ();
+  Metrics_unix.monitor_gc 0.1;
+  init ();
+  minimal_benchs ()

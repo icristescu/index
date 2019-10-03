@@ -12,6 +12,8 @@ type stats = {
   mutable nb_reads : int;
   mutable bytes_written : int;
   mutable nb_writes : int;
+  mutable nb_merge : int;
+  mutable nb_replace : int;
 }
 
 val reset_stats : unit -> unit

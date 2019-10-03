@@ -17,6 +17,8 @@ depends: [
   "dune"    {>= "1.11.0"}
   "fmt"
   "logs"
+  "metrics"
+  "metrics-unix"
   "alcotest" {with-test}
   "crowbar" {with-test}
   "re" {with-test}

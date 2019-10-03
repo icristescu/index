@@ -44,4 +44,8 @@ module type S = sig
   val lock : string -> lock
 
   val unlock : lock -> unit
+
+  val incr_nb_merge : unit -> unit
+
+  val incr_nb_replace : unit -> unit
 end
