@@ -1,7 +1,7 @@
 (** Benchmarks *)
 
 open Common
-open Rresult
+open Lwt
 
 let src = Logs.Src.create "db_bench"
 
@@ -17,7 +17,7 @@ let hash_size = 30
 
 let value_size = 13
 
-let nb_entries = 100_000
+let nb_entries = 1_000_000
 
 let log_size = 500_000
 
@@ -183,6 +183,7 @@ end
 
 module Lmdb = struct
   open Lmdb
+  open Rresult
 
   let root = "/tmp"
 
@@ -330,7 +331,7 @@ let lmdb_main () =
   Lmdb.fail_on_error Lmdb.write_sync;
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in random order");
-  let lmdb, env = R.get_ok (Lmdb.write_random ()) in
+  let lmdb, env = Rresult.R.get_ok (Lmdb.write_random ()) in
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Read in random order ");
   Lmdb.read_random lmdb;
@@ -359,9 +360,40 @@ let minimal_benchs () =
   Index.read_seq rw;
   Index.close rw
 
+let lwt_benchs () =
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Fill in random order");
+  Lwt.return (Index.write_random ()) >>= fun rw ->
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Read in random order ");
+  Lwt.return (Index.read_random rw) >>= fun () ->
+  Log.app (fun l -> l "\n");
+  Log.app (fun l ->
+      l "Read in sequential order (increasing order of hashes for index)");
+  Lwt.return (Index.read_seq rw) >>= fun () ->
+  Index.close rw;
+  Lwt.return_unit
+
+open Cmdliner
+
+let run_with_prometheus config =
+  let bench_thread =
+    init ();
+    lwt_benchs ()
+  in
+  let threads = bench_thread :: Prometheus_unix.serve config in
+  Lwt_main.run (Lwt.choose threads)
+
+let prometheus () =
+  let spec = Term.(const run_with_prometheus $ Prometheus_unix.opts) in
+  let info = Term.info "bench" in
+  match Term.eval (spec, info) with `Error _ -> exit 1 | _ -> ()
+
 let () =
   Metrics.enable_all ();
   Metrics_gnuplot.set_reporter ();
   Metrics_unix.monitor_gc 0.1;
-  init ();
-  minimal_benchs ()
+  prometheus ()
+
+(* init (); *)
+(* minimal_benchs () *)

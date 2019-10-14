@@ -6,7 +6,7 @@
 (executable
  (name db_bench)
  (modules db_bench)
- (libraries fmt index.unix common lmdb bigstring rresult logs logs.fmt metrics metrics-unix))
+ (libraries fmt index.unix common lmdb bigstring rresult logs logs.fmt metrics metrics-unix prometheus prometheus-app.unix cmdliner))
 
 (alias
  (name bench)
