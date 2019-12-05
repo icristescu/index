@@ -35,7 +35,7 @@ let hash_size = 30
 
 let value_size = 13
 
-let nb_entries = 10_000_000
+let nb_entries = 100_000_000
 
 let log_size = 500_000
 
@@ -381,16 +381,34 @@ let lmdb_main () =
   Lmdb.overwrite lmdb;
   Lmdb.close env
 
+let clean_cache () =
+  Log.app (fun l -> l "\n");
+  Log.app (fun l -> l "Clean cache: ");
+  let cmd1 =
+    Printf.sprintf "vmtouch -e %s" (Index.root // "fill_random/index/data")
+  in
+  Log.app (fun l -> l "%s: " cmd1);
+  let _ = Sys.command cmd1 in
+  let cmd2 =
+    Printf.sprintf "vmtouch -e %s" (Index.root // "fill_random/index/log")
+  in
+  Log.app (fun l -> l "%s: " cmd2);
+  let _ = Sys.command cmd2 in
+  ()
+
 let minimal_benchs () =
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Fill in random order");
   let rw = Index.write_random () in
+  clean_cache ();
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "RW Read in random order ");
   Index.read_random rw;
+  clean_cache ();
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "RO Read in random order");
   Index.ro_read_random rw;
+  clean_cache ();
   Log.app (fun l -> l "\n");
   Log.app (fun l -> l "Read 1000 absent values");
   Index.read_absent rw;
