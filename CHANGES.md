@@ -9,6 +9,10 @@
 
 - Benches are now executed 3 times and a new option `nb-exec` has been added (#292)
 
+## Added
+
+- Added benchmarks that replay a trace of index operations. (#300)
+
 # 1.3.0 (2021-01-05)
 
 ## Added
