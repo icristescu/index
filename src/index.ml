@@ -720,6 +720,11 @@ struct
                 assert (n = Entry.encoded_size);
                 Some (Entry.decode (Bytes.unsafe_to_string buf) 0)))
 
+  (** [t.merge_lock] is used to detect an ongoing merge. Other operations can
+      take this lock, but as they are not async, we consider this to be a good
+      enough approximations. *)
+  let instance_is_merging t = Semaphore.is_held t.merge_lock
+
   let try_merge_aux ?hook ?(force = false) t =
     let t = check_open t in
     let witness =
@@ -737,6 +742,8 @@ struct
             Thread.return `Completed
         | Some log ->
             if
+              not (instance_is_merging t)
+              ||
               force
               || Int64.compare (IO.offset log.io)
                    (Int64.of_int t.config.log_size)
@@ -748,10 +755,6 @@ struct
 
   let try_merge t = ignore (try_merge_aux ?hook:None ~force:false t : _ async)
 
-  (** [t.merge_lock] is used to detect an ongoing merge. Other operations can
-      take this lock, but as they are not async, we consider this to be a good
-      enough approximations. *)
-  let instance_is_merging t = Semaphore.is_held t.merge_lock
 
   let is_merging t =
     let t = check_open t in
