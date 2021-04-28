@@ -17,7 +17,7 @@
 open Common
 
 module Encoding = struct
-  module Hash = Tezos_hash.Hash
+  module Hash = Tezos_context_hash.Hash
 
   module Key : Index.Key.S with type t = Hash.t = struct
     type t = Hash.t [@@deriving repr]
