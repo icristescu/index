@@ -34,14 +34,20 @@ let fsync t = Unix.fsync t.fd
 let close t = Unix.close t.fd
 let fstat t = Unix.fstat t.fd
 
+let with_timer f =
+  let started = Mtime_clock.counter () in
+  let a = f () in
+  let duration = Mtime_clock.count started in
+  (a, duration)
+
 let unsafe_write t ~off buf =
   let buf = Bytes.unsafe_of_string buf in
-  really_write t.fd off buf;
-  Stats.add_write (Bytes.length buf)
+  let (), duration = with_timer (fun () -> really_write t.fd off buf) in
+  Stats.add_write (Bytes.length buf) duration
 
 let unsafe_read t ~off ~len buf =
-  let n = really_read t.fd off len buf in
-  Stats.add_read n;
+  let n, duration = with_timer (fun () -> really_read t.fd off len buf) in
+  Stats.add_read n duration;
   n
 
 let encode_int63 n =

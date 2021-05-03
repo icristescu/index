@@ -11,9 +11,13 @@ type t = {
   mutable replace_durations : float list;
   mutable nb_sync : int;
   mutable time_sync : float;
+  mutable histo_read : Bentov.histogram;
+  mutable histo_write : Bentov.histogram;
 }
 
 let fresh_stats () =
+  let histo_read = Bentov.create 30 in
+  let histo_write = Bentov.create 30 in
   {
     bytes_read = 0;
     nb_reads = 0;
@@ -25,6 +29,8 @@ let fresh_stats () =
     replace_durations = [];
     nb_sync = 0;
     time_sync = 0.0;
+    histo_read;
+    histo_write;
   }
 
 let stats = fresh_stats ()
@@ -39,7 +45,9 @@ let reset_stats () =
   stats.nb_replace <- 0;
   stats.replace_durations <- [];
   stats.nb_sync <- 0;
-  stats.time_sync <- 0.0
+  stats.time_sync <- 0.0;
+  stats.histo_read <- Bentov.create 30;
+  stats.histo_write <- Bentov.create 30
 
 let get () = stats
 let incr_bytes_read n = stats.bytes_read <- stats.bytes_read + n
@@ -50,13 +58,17 @@ let incr_nb_merge () = stats.nb_merge <- succ stats.nb_merge
 let incr_nb_replace () = stats.nb_replace <- succ stats.nb_replace
 let incr_nb_sync () = stats.nb_sync <- succ stats.nb_sync
 
-let add_read n =
+let add_read n duration =
   incr_bytes_read n;
-  incr_nb_reads ()
+  incr_nb_reads ();
+  let point = Mtime.Span.to_us duration in
+  stats.histo_read <- Bentov.add point stats.histo_read
 
-let add_write n =
+let add_write n duration =
   incr_bytes_written n;
-  incr_nb_writes ()
+  incr_nb_writes ();
+  let point = Mtime.Span.to_us duration in
+  stats.histo_write <- Bentov.add point stats.histo_write
 
 let replace_timer = ref (Mtime_clock.counter ())
 let nb_replace = ref 0

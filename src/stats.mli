@@ -11,6 +11,8 @@ type t = {
   mutable replace_durations : float list;
   mutable nb_sync : int;
   mutable time_sync : float;
+  mutable histo_read : Bentov.histogram;
+  mutable histo_write : Bentov.histogram;
 }
 (** The type for stats for an index I.
 
@@ -29,8 +31,8 @@ type t = {
 
 val reset_stats : unit -> unit
 val get : unit -> t
-val add_read : int -> unit
-val add_write : int -> unit
+val add_read : int -> Mtime.span -> unit
+val add_write : int -> Mtime.span -> unit
 val incr_nb_merge : unit -> unit
 val incr_nb_replace : unit -> unit
 val incr_nb_sync : unit -> unit
